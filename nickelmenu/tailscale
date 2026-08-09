@@ -10,8 +10,11 @@
 # autoconnect must not stop you from toggling Tailscale *off*, and tailscaled
 # copes fine with the link arriving late.
 
+# Everything runs through /bin/sh rather than relying on the executable bit:
+# the user partition is vfat, where that bit is a mount option, not a fact.
+
 menu_item :main :Tailscale        :nickel_wifi :autoconnect
-  chain_always                    :cmd_spawn   :quiet:/mnt/onboard/.adds/tailscale/tailscale-ctl.sh toggle
+  chain_always                    :cmd_spawn   :quiet:exec /bin/sh /mnt/onboard/.adds/tailscale/tailscale-ctl.sh toggle
   chain_failure                   :dbg_toast   :Tailscale: failed to start (see log)
 
-menu_item :main :Tailscale status :cmd_output  :3000:quiet:/mnt/onboard/.adds/tailscale/tailscale-ctl.sh status
+menu_item :main :Tailscale status :cmd_output  :3000:quiet:/bin/sh /mnt/onboard/.adds/tailscale/tailscale-ctl.sh status

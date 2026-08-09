@@ -10,8 +10,12 @@ Put a Kobo on your tailnet, so KOReader can reach tailnet services — calibre-w
 an OPDS catalogue, ReadItEventually — from any network, not just the one at home.
 A **Tailscale** entry on the home screen turns it on and off.
 
-Built for a **Kobo Elipsa (v1)**. Nothing here is Elipsa-specific beyond the
-preflight checks, so it should work on any Kobo whose kernel has TUN.
+Built and verified on a **Kobo Elipsa (v1)** — `armv7l`, kernel 4.9.56, firmware
+4.38.23697. Nothing here is Elipsa-specific beyond the preflight checks, so it
+should work on any Kobo whose kernel has TUN.
+
+Confirmed on that device: `CONFIG_TUN=y`, `/dev/net/tun` present, `/mnt/onboard`
+mounted without `noexec`, and no `iptables` anywhere.
 
 ## Why this is simpler than it looks
 
@@ -76,10 +80,23 @@ Tailscale CLI (`tailscale-ctl.sh ts ping ubuntu-s1`).
 
 ### In KOReader
 
-Once Tailscale is up, tailnet machines are reachable **by name** — add an OPDS
-catalogue at `http://ubuntu-s1:8083/opds` and it works from anywhere. Names work
-because of the `/etc/hosts` trick below, so use the short hostname exactly as it
-appears in `tailscale status`.
+Once Tailscale is up, tailnet machines are reachable **by name**, because of the
+`/etc/hosts` trick described below. Each peer is written twice — full MagicDNS
+name and short name:
+
+```
+100.116.56.10   ubuntu-s1.auroch-universe.ts.net   ubuntu-s1
+```
+
+**Use the full name for anything behind `tailscale serve`.** Those endpoints are
+HTTPS with a certificate issued for `<host>.<tailnet>.ts.net`, so the short name
+connects and then fails to validate. Verified working on the device:
+
+```
+https://ubuntu-s1.auroch-universe.ts.net:18090   ->  200 OK
+```
+
+The short name is fine for plain-HTTP ports and for `ssh`.
 
 Note that KOReader manages WiFi itself. If KOReader drops the WiFi, Tailscale
 goes with it and reconnects when the link returns; the daemon survives.
@@ -110,6 +127,10 @@ Three more things the control script handles:
   So `--accept-dns=false`, and MagicDNS is replaced by a marker-delimited block
   of tailnet peers written into `/etc/hosts` on start and removed on stop. That
   block is rewritten idempotently, never appended to.
+- **`--netfilter-mode=off` goes on `tailscale up`, not on `tailscaled`.** The
+  daemon flag was removed upstream; passing it there makes tailscaled exit with
+  a usage dump. It is also not optional: the Kobo ships **no `iptables` binary
+  at all**, so any other mode fails once Tailscale tries to install rules.
 - **The daemon is detached** with `setsid` and given a small `renice` boost, so
   Nickel doesn't reap or starve it.
 

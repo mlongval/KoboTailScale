@@ -20,6 +20,9 @@
 #   * --accept-dns=false: the Kobo has no DNS manager, so Tailscale would just
 #     overwrite /etc/resolv.conf, which WiFi reassociation then overwrites back.
 #     MagicDNS is replaced by the /etc/hosts block this script maintains.
+#   * --netfilter-mode=off goes on `tailscale up`, not on tailscaled: the daemon
+#     flag was removed upstream. It is not optional -- the Kobo ships no
+#     iptables binary at all, so any other mode fails.
 
 set -u
 
@@ -34,7 +37,7 @@ SOCK="/tmp/tailscaled.sock"
 PIDFILE="/tmp/tailscaled.pid"
 
 HOSTNAME_TS="kobo-elipsa"
-UP_ARGS="--accept-dns=false --accept-routes"
+UP_ARGS="--accept-dns=false --accept-routes --netfilter-mode=off"
 AUTHKEY=""
 MANAGE_HOSTS=1
 HOSTS_FILE="/etc/hosts"
@@ -119,7 +122,6 @@ start_daemon() {
 			--state="$STATE" \
 			--statedir="$STATE_DIR" \
 			--socket="$SOCK" \
-			--netfilter-mode=off \
 			--port=41641 >> "$LOG" 2>&1 &
 	else
 		nohup "$BIN/tailscaled" \
@@ -127,7 +129,6 @@ start_daemon() {
 			--state="$STATE" \
 			--statedir="$STATE_DIR" \
 			--socket="$SOCK" \
-			--netfilter-mode=off \
 			--port=41641 >> "$LOG" 2>&1 &
 	fi
 	pid=$!
@@ -161,10 +162,20 @@ hosts_strip() {
 hosts_sync() {
 	[ "$MANAGE_HOSTS" = "1" ] || return 0
 
+	# Each peer gets both its full MagicDNS name and its short name. The full
+	# name matters: anything behind `tailscale serve` is HTTPS with a
+	# certificate issued for <host>.<tailnet>.ts.net, so a short-name-only
+	# entry would connect and then fail to validate.
+	suffix="$($TS status --json 2>/dev/null |
+		sed -n 's/.*"MagicDNSSuffix": *"\([^"]*\)".*/\1/p' | head -n1)"
+
 	# `tailscale status` lists one peer per line: <100.x.y.z> <host> <user> ...
-	# Self is the first line. Short name only — no MagicDNS suffix to guess at.
-	peers="$("$BIN"/tailscale --socket="$SOCK" status 2>/dev/null |
-		awk '$1 ~ /^100\./ && $2 != "" { print $1 "\t" $2 }')"
+	peers="$($TS status 2>/dev/null | awk -v sfx="$suffix" '
+		$1 ~ /^100\./ && $2 != "" {
+			# Names that already contain a dot are fully qualified as-is.
+			if (sfx == "" || $2 ~ /\./) print $1 "\t" $2
+			else                        print $1 "\t" $2 "." sfx "\t" $2
+		}')"
 	[ -n "$peers" ] || return 0
 
 	hosts_strip
