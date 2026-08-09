@@ -144,6 +144,24 @@ Three more things the control script handles:
 | Peers ping but names don't resolve | `tailscale-ctl.sh hosts sync` after a new machine joins the tailnet. |
 | Works at home, not on cellular | Genuine connectivity issue, not this script — check the peer is online. |
 
+### Not a Tailscale problem: "Set custom calibre address"
+
+Worth knowing, because it looks like a network failure and isn't. KOReader's
+**Calibre Wireless** feature (*"Set custom calibre address"*, a host box and a
+separate port box) talks to the **desktop** Calibre app's device server — a
+binary protocol on port 9090. It cannot talk to calibre-web, so no address
+entered there will work, and putting a path in the host box yields
+`host not found` for a mangled hostname:
+
+<p align="center">
+  <img src="docs/koreader-calibre-wireless-dialog.jpeg" width="380">
+  <img src="docs/koreader-calibre-wireless-error.jpeg" width="380">
+</p>
+
+For calibre-web, use the **OPDS catalog** browser instead — one URL field, no
+port box — with the full MagicDNS name:
+`https://<host>.<tailnet>.ts.net:8083/opds`.
+
 ### Reaching the device
 
 The Kobo has no SSH daemon of its own. What answers is **KOReader's** server,
