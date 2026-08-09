@@ -1,0 +1,12 @@
+# NickelMenu — Tailscale
+# Installed to /mnt/onboard/.adds/nm/tailscale
+#
+# One toggle plus a status readout. NickelMenu cannot relabel an item based on
+# state, so an on/off pair would always show a stale label; toggle + status is
+# the honest version.
+
+menu_item :main :Tailscale        :cmd_spawn  :quiet:/mnt/onboard/.adds/tailscale/tailscale-ctl.sh toggle
+  chain_success                   :dbg_toast  :Tailscale: toggling…
+  chain_failure                   :dbg_toast  :Tailscale: failed to start (see log)
+
+menu_item :main :Tailscale status :cmd_output :3000:quiet:/mnt/onboard/.adds/tailscale/tailscale-ctl.sh status
