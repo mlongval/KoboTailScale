@@ -62,8 +62,13 @@ On the home screen:
 
 | Entry | What it does |
 |---|---|
-| **Tailscale** | Toggles the daemon. Starting takes a few seconds. |
+| **Tailscale** | Brings WiFi up, then toggles the daemon. Starting takes a few seconds. |
 | **Tailscale status** | Toasts `Tailscale: up · 100.x.y.z · 7 peers`. |
+
+The toggle asks Nickel to autoconnect WiFi first, so you don't have to turn it
+on yourself — a side effect being that toggling Tailscale *off* also nudges WiFi
+on. If you'd rather it never touched the radio, drop the `nickel_wifi` line from
+`/mnt/onboard/.adds/nm/tailscale`.
 
 Over SSH, `tailscale-ctl.sh` takes `start`, `stop`, `restart`, `toggle`,
 `status`, `login`, `logs`, `hosts sync|clear`, and `ts <args>` for the raw

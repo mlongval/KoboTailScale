@@ -4,9 +4,14 @@
 # One toggle plus a status readout. NickelMenu cannot relabel an item based on
 # state, so an on/off pair would always show a stale label; toggle + status is
 # the honest version.
+#
+# The toggle brings WiFi up first, because tailscaled without a network is just
+# a sulking process. chain_always rather than chain_success: a failed
+# autoconnect must not stop you from toggling Tailscale *off*, and tailscaled
+# copes fine with the link arriving late.
 
-menu_item :main :Tailscale        :cmd_spawn  :quiet:/mnt/onboard/.adds/tailscale/tailscale-ctl.sh toggle
-  chain_success                   :dbg_toast  :Tailscale: toggling…
-  chain_failure                   :dbg_toast  :Tailscale: failed to start (see log)
+menu_item :main :Tailscale        :nickel_wifi :autoconnect
+  chain_always                    :cmd_spawn   :quiet:/mnt/onboard/.adds/tailscale/tailscale-ctl.sh toggle
+  chain_failure                   :dbg_toast   :Tailscale: failed to start (see log)
 
-menu_item :main :Tailscale status :cmd_output :3000:quiet:/mnt/onboard/.adds/tailscale/tailscale-ctl.sh status
+menu_item :main :Tailscale status :cmd_output  :3000:quiet:/mnt/onboard/.adds/tailscale/tailscale-ctl.sh status
