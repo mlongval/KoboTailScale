@@ -63,10 +63,6 @@ VERSION=$(tr -d '[:space:]' < TAILSCALE_VERSION)
 
 # --- USB-mounted device -----------------------------------------------------
 if [[ -d "$TARGET" ]]; then
-    if [[ -n "$AUTHKEY" ]]; then
-        echo "error: --authkey needs a running device; install over SSH instead" >&2
-        exit 1
-    fi
     DEST="$TARGET/$DEST_REL"
     echo "Installing tailscale $VERSION to $DEST"
     mkdir -p "$DEST/bin" "$DEST/log"
@@ -75,6 +71,17 @@ if [[ -d "$TARGET" ]]; then
     # Never clobber settings the user has edited on the device.
     [[ -f "$DEST/tailscale.conf" ]] || cp device/tailscale.conf "$DEST/"
     chmod +x "$DEST/tailscale-ctl.sh" "$DEST/bin/tailscale" "$DEST/bin/tailscaled" 2>/dev/null || true
+
+    # A USB install cannot log in -- the Kobo isn't running its OS in storage
+    # mode. Seeding the key lets the first toggle authenticate itself instead.
+    if [[ -n "$AUTHKEY" ]]; then
+        sed "s|^[[:space:]]*AUTHKEY=.*|AUTHKEY=\"$AUTHKEY\"|" "$DEST/tailscale.conf" > "$DEST/.conf.tmp" \
+            && cat "$DEST/.conf.tmp" > "$DEST/tailscale.conf"
+        rm -f "$DEST/.conf.tmp"
+        grep -q "^AUTHKEY=\"$AUTHKEY\"$" "$DEST/tailscale.conf" \
+            || { echo "error: failed to seed the auth key into tailscale.conf" >&2; exit 1; }
+        echo "Seeded the auth key; the first toggle will log in by itself."
+    fi
 
     if [[ $WITH_NM -eq 1 ]]; then
         if [[ ! -d "$TARGET/$NM_REL" ]]; then
@@ -86,7 +93,14 @@ if [[ -d "$TARGET" ]]; then
     fi
 
     sync
-    cat <<EOF
+    if [[ -n "$AUTHKEY" ]]; then
+        cat <<'EOF'
+
+Done. Eject the device, then tap "Tailscale" on the home screen -- it brings
+WiFi up, logs in with the seeded key, and clears the key from the config.
+EOF
+    else
+        cat <<EOF
 
 Done. Eject the device.
 
@@ -94,8 +108,10 @@ One-time login, over SSH once the Kobo is back on WiFi:
 
     ssh kobo $ONBOARD/$DEST_REL/tailscale-ctl.sh login
 
-Then the "Tailscale" entry on the home screen toggles it.
+Then the "Tailscale" entry on the home screen toggles it. To skip the SSH step
+entirely, reinstall with --authkey tskey-auth-... instead.
 EOF
+    fi
     exit 0
 fi
 

@@ -35,6 +35,7 @@ PIDFILE="/tmp/tailscaled.pid"
 
 HOSTNAME_TS="kobo-elipsa"
 UP_ARGS="--accept-dns=false --accept-routes"
+AUTHKEY=""
 MANAGE_HOSTS=1
 HOSTS_FILE="/etc/hosts"
 HOSTS_BEGIN="# >>> kobo-tailscale >>>"
@@ -175,6 +176,20 @@ hosts_sync() {
 	log "synced $(printf '%s\n' "$peers" | wc -l) tailnet hosts into $HOSTS_FILE"
 }
 
+# --- auth key hygiene --------------------------------------------------------
+
+# Once the key has been redeemed it is spent, and leaving it in a world-readable
+# file on the vfat partition buys nothing.
+scrub_authkey() {
+	conf="$HERE/tailscale.conf"
+	[ -w "$conf" ] || return 0
+	grep -q '^[[:space:]]*AUTHKEY=' "$conf" || return 0
+	sed 's/^[[:space:]]*AUTHKEY=.*/AUTHKEY=""   # redeemed and cleared/' \
+		"$conf" > /tmp/tsconf.$$ && cat /tmp/tsconf.$$ > "$conf"
+	rm -f /tmp/tsconf.$$
+	log "auth key redeemed; cleared it from tailscale.conf"
+}
+
 # --- commands ----------------------------------------------------------------
 
 cmd_start() {
@@ -185,6 +200,22 @@ cmd_start() {
 	fi
 
 	if [ ! -f "$STATE" ]; then
+		# Never logged in. An auth key in tailscale.conf makes the very first
+		# toggle self-authenticating, which is the only way a USB-only install
+		# can finish without SSH.
+		if [ -n "$AUTHKEY" ]; then
+			log "first run: authenticating with the key from tailscale.conf"
+			if $TS up --hostname="$HOSTNAME_TS" $UP_ARGS \
+			          --authkey="$AUTHKEY" --timeout=60s >> "$LOG" 2>&1; then
+				scrub_authkey
+				hosts_sync
+				cmd_status
+				return 0
+			fi
+			log "auth key was rejected (expired, already used, or revoked)"
+			echo "Tailscale: auth key rejected"
+			return 1
+		fi
 		log "no state file: this device has never logged in"
 		echo "Tailscale: needs login (run 'tailscale-ctl.sh login' over SSH)"
 		return 1
