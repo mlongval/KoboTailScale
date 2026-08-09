@@ -144,6 +144,20 @@ Three more things the control script handles:
 | Peers ping but names don't resolve | `tailscale-ctl.sh hosts sync` after a new machine joins the tailnet. |
 | Works at home, not on cellular | Genuine connectivity issue, not this script — check the peer is online. |
 
+### Reaching the device
+
+The Kobo has no SSH daemon of its own. What answers is **KOReader's** server,
+started from KOReader → *Network* → *SSH server*: port **2222**, user `root`,
+blank password. Plain `ssh` refuses a blank password, so:
+
+```sh
+sshpass -p '' ssh -o PreferredAuthentications=password -o PubkeyAuthentication=no \
+    -p 2222 root@kobo-elipsa.<tailnet>.ts.net
+```
+
+Once Tailscale is running you can use the tailnet name instead of the LAN
+address, which is the whole point of this.
+
 Uninstall by deleting `/mnt/onboard/.adds/tailscale`, `/mnt/onboard/.adds/nm/tailscale`
 and `/usr/local/tailscale`, after running `tailscale-ctl.sh stop` so the
 `/etc/hosts` block is removed.
