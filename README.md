@@ -32,6 +32,25 @@ isn't necessary on a Kobo:
   skips with `--netfilter-mode=off` — legitimate, because the Kobo here is a
   leaf node, not an exit node or subnet router.
 
+## Prerequisites
+
+A stock Kobo has no SSH server and no way to add a menu entry, so two
+community add-ons do that work. Both install by copying files to the Kobo
+over USB — no jailbreak, and a factory reset removes them.
+
+- **[KOReader](https://github.com/koreader/koreader)** — the reader this is
+  meant to serve, and also the only SSH server on the device (*Network →
+  SSH server*, port 2222, user `root`, blank password; see
+  [Reaching the device](#reaching-the-device)). Install with
+  [KOReader's one-click installer](https://github.com/koreader/koreader/wiki/Installation-on-Kobo-devices)
+  or via NickelMenu.
+- **[NickelMenu](https://pgaskin.net/NickelMenu/)** — adds the
+  **Tailscale** toggle to the Kobo home-screen menu. Optional: without it you
+  start and stop Tailscale from SSH with `tailscale-ctl.sh`.
+- On your computer: `ssh` (and `sshpass`, for the blank password) for the
+  SSH install path; nothing for the USB path.
+- A [Tailscale](https://tailscale.com) account.
+
 ## Installing
 
 ```sh
