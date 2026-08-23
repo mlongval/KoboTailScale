@@ -77,6 +77,17 @@ over USB — no jailbreak, and a factory reset removes them.
 
 ## Installing
 
+The short way, over SSH, with the IP from KOReader's *SSH server* dialog:
+
+```sh
+./tools/setup-kobo.sh 192.168.1.50
+```
+
+That writes the `kobo` alias into `~/.ssh/config`, checks the connection,
+fetches the binaries if `vendor/` is empty, runs `install.sh`, and starts the
+login below. Add `--authkey tskey-auth-...` to skip the browser step. The
+long way, step by step:
+
 ```sh
 ./tools/fetch-tailscale.sh --latest   # download + verify the ARM binaries
 ./install.sh kobo                     # over SSH; "kobo" is any ssh target
