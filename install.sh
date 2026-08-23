@@ -20,7 +20,7 @@
 # that case:
 #
 #   SSH="sshpass -p '' ssh -p 2222" SCP="sshpass -p '' scp -P 2222" \
-#       ./install.sh root@192.168.2.192
+#       ./install.sh root@192.168.1.50
 
 set -euo pipefail
 

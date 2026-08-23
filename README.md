@@ -85,7 +85,7 @@ Once Tailscale is up, tailnet machines are reachable **by name**, because of the
 name and short name:
 
 ```
-100.116.56.10   ubuntu-s1.auroch-universe.ts.net   ubuntu-s1
+100.64.0.10     myserver.tail1234.ts.net   myserver
 ```
 
 **Use the full name for anything behind `tailscale serve`.** Those endpoints are
@@ -93,7 +93,7 @@ HTTPS with a certificate issued for `<host>.<tailnet>.ts.net`, so the short name
 connects and then fails to validate. Verified working on the device:
 
 ```
-https://ubuntu-s1.auroch-universe.ts.net:18090   ->  200 OK
+https://myserver.tail1234.ts.net:18090   ->  200 OK
 ```
 
 The short name is fine for plain-HTTP ports and for `ssh`.
