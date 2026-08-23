@@ -47,8 +47,32 @@ over USB — no jailbreak, and a factory reset removes them.
 - **[NickelMenu](https://pgaskin.net/NickelMenu/)** — adds the
   **Tailscale** toggle to the Kobo home-screen menu. Optional: without it you
   start and stop Tailscale from SSH with `tailscale-ctl.sh`.
-- On your computer: `ssh` (and `sshpass`, for the blank password) for the
-  SSH install path; nothing for the USB path.
+- On your computer, for the SSH install path: `ssh` plus `sshpass` (for the
+  blank password). Nothing for the USB path.
+
+  Every `kobo` in this README is an alias. Read the Kobo's LAN address from
+  KOReader's *SSH server* dialog (or Nickel's *Settings → Device information*)
+  and put it in `~/.ssh/config`:
+
+  ```
+  Host kobo
+      HostName 192.168.1.50           # the Kobo's address on your WiFi
+      Port 2222
+      User root
+      PreferredAuthentications password
+      PubkeyAuthentication no
+  ```
+
+  Then `sshpass -p '' ssh kobo` gets you a shell. `install.sh` runs plain
+  `ssh`/`scp`, which would stop to ask for the blank password at every step,
+  so hand it the `sshpass` forms:
+
+  ```sh
+  SSH="sshpass -p '' ssh" SCP="sshpass -p '' scp" ./install.sh kobo
+  ```
+
+  Without the alias, spell the target out each time:
+  `sshpass -p '' ssh -p 2222 root@192.168.1.50`.
 - A [Tailscale](https://tailscale.com) account.
 
 ## Installing
@@ -66,7 +90,7 @@ and refuses rather than copying 65 MB onto a device that can't run it. Add
 Then log in once, from your computer:
 
 ```sh
-ssh kobo /mnt/onboard/.adds/tailscale/tailscale-ctl.sh login
+sshpass -p '' ssh kobo /mnt/onboard/.adds/tailscale/tailscale-ctl.sh login
 ```
 
 It prints a URL — in your terminal, since the command runs over SSH; nothing
