@@ -69,8 +69,15 @@ Then log in once, from your computer:
 ssh kobo /mnt/onboard/.adds/tailscale/tailscale-ctl.sh login
 ```
 
-It prints a URL; open it in a browser and approve the device. That's the only
-interactive step — after it, the state is stored and the toggle is enough.
+It prints a URL — in your terminal, since the command runs over SSH; nothing
+appears on the Kobo's screen. Open it in a browser and approve the device.
+That's the only interactive step — after it, the state is stored and the toggle
+is enough.
+
+One thing to do in the admin console while you're there: **disable key expiry**
+for the Kobo (machine menu → *Disable key expiry*). Tailscale expires node keys
+after 180 days by default, and when that happens the toggle stops connecting
+with no visible error until you run `login` again.
 
 To skip the browser entirely, generate an auth key in the Tailscale admin
 console and pass it at install time:
