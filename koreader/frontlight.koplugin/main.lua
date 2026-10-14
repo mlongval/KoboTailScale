@@ -18,9 +18,13 @@ local lfs = require("libs/libkoreader-lfs")
 
 local TAB_ID = "frontlight_toggle"
 
+-- The Kobo fork of KOReader (github.com/mlongval/koreader, branch kobo)
+-- has the light built in (Menu > Light, hold the Menu tab): stay out.
+local FORK = require("ui/elements/reader_menu_order").my_kobo ~= nil
+
 -- Put our icon first in both menu bars. MenuSorter drops a tab that has
 -- no entry of its own in the order table, so give it an empty one.
-for _, name in ipairs{"ui/elements/reader_menu_order", "ui/elements/filemanager_menu_order"} do
+for _, name in ipairs(FORK and {} or {"ui/elements/reader_menu_order", "ui/elements/filemanager_menu_order"}) do
     local order = require(name)
     order[TAB_ID] = order[TAB_ID] or {}
     local buttons = order["KOMenu:menu_buttons"]
@@ -37,7 +41,7 @@ local FrontlightButton = WidgetContainer:extend{
 }
 
 function FrontlightButton:init()
-    if not Device:hasFrontlight() then return end
+    if FORK or not Device:hasFrontlight() then return end
     -- IconWidget looks icons up by name under resources/icons/mdlight
     -- (relative to KOReader's folder); climb back out to our own folder.
     local path = self.path

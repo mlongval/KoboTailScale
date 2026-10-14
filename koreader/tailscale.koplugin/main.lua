@@ -30,10 +30,15 @@ local CTL = "/mnt/onboard/.adds/tailscale/tailscale-ctl.sh"
 local PIDFILE = "/tmp/tailscaled.pid"
 local TAB_ID = "tailscale_toggle"
 
+-- The Kobo fork of KOReader (github.com/mlongval/koreader, branch kobo)
+-- has no icon tabs: there the panel is a Menu entry ("network_panel")
+-- and opens on a hold of the Settings tab (ShowNetworkPanel).
+local FORK = require("ui/elements/reader_menu_order").my_kobo ~= nil
+
 -- Put our icon just before the main-menu icon, in both menu bars.
 -- MenuSorter drops a tab that has no entry of its own in the order
 -- table, so give it an empty one (as the file manager's plus_menu has).
-for _, name in ipairs{"ui/elements/reader_menu_order", "ui/elements/filemanager_menu_order"} do
+for _, name in ipairs(FORK and {} or {"ui/elements/reader_menu_order", "ui/elements/filemanager_menu_order"}) do
     local order = require(name)
     order[TAB_ID] = order[TAB_ID] or {}
     local buttons = order["KOMenu:menu_buttons"]
@@ -79,6 +84,13 @@ local TailscaleButton = WidgetContainer:extend{
 function TailscaleButton:init()
     if not readFile(CTL) then
         logger.warn("tailscale button:", CTL, "not found; not adding the icon")
+        return
+    end
+    require("dispatcher"):registerAction("show_network_panel", {
+        category = "none", event = "ShowNetworkPanel", title = _("Network panel"), general = true,
+    })
+    if FORK then
+        self.ui.menu:registerToMainMenu(self)
         return
     end
     self.tab = {
@@ -137,7 +149,31 @@ function TailscaleButton:onNetworkConnected()
 end
 
 function TailscaleButton:addToMainMenu(menu_items)
+    if FORK then
+        menu_items.network_panel = {
+            text_func = function()
+                if tailscaleRunning() then return _("Network: Tailscale") end
+                if NetworkMgr:isWifiOn() then return _("Network: Wi-Fi") end
+                return _("Network: off")
+            end,
+            help_text = _("Wi-Fi, Tailscale and Dev mode. Holding the Settings tab opens this too."),
+            callback = function()
+                self:closeMenu()
+                self:showPanel()
+            end,
+        }
+        return
+    end
     menu_items[TAB_ID] = self.tab
+end
+
+function TailscaleButton:isRunning()
+    return tailscaleRunning()
+end
+
+function TailscaleButton:onShowNetworkPanel()
+    self:showPanel()
+    return true
 end
 
 function TailscaleButton:currentIcon()
@@ -199,6 +235,11 @@ function TailscaleButton:showPanel()
     end
     local ts_on = tailscaleRunning()
     table.insert(lines, ts_on and ctlStatus() or _("Tailscale: stopped"))
+    local dev_until = G_reader_settings:readSetting("kobo_devmode_until") or 0
+    local dev_on = dev_until > os.time()
+    if dev_on then
+        table.insert(lines, _("Dev mode until ") .. os.date("%H:%M", dev_until))
+    end
 
     local dialog
     local function run(fn)
@@ -210,84 +251,95 @@ function TailscaleButton:showPanel()
     local function reopen(delay)
         UIManager:scheduleIn(delay, function() self:showPanel() end)
     end
+    local buttons = {
+        {
+            {
+                text = wifi_on and _("Wi-Fi off") or _("Wi-Fi on"),
+                callback = run(function()
+                    if wifi_on then
+                        NetworkMgr:disableWifi(nil, false)
+                    else
+                        NetworkMgr:enableWifi(nil, true)
+                    end
+                end),
+            },
+            {
+                text = ts_on and _("Tailscale off") or _("Tailscale on"),
+                enabled = ts_on or wifi_on,
+                callback = run(function()
+                    if ts_on then
+                        toast(_("Stopping Tailscale…"), 2)
+                        os.execute("/bin/sh " .. CTL .. " stop >/dev/null 2>&1 &")
+                    else
+                        toast(_("Starting Tailscale…"), 2)
+                        os.execute("/bin/sh " .. CTL .. " start >/dev/null 2>&1 &")
+                        reopen(10)
+                    end
+                end),
+            },
+        },
+        {
+            {
+                text = _("Choose network"),
+                callback = run(function()
+                    if NetworkMgr:isWifiOn() then
+                        NetworkMgr.wifi_toggle_long_press = true
+                        NetworkMgr:reconnectOrShowNetworkMenu(nil, true)
+                    else
+                        NetworkMgr:toggleWifiOn(nil, true, true)
+                    end
+                end),
+            },
+            {
+                text = _("Restart Tailscale"),
+                enabled = wifi_on,
+                callback = run(function()
+                    toast(_("Restarting Tailscale…"), 2)
+                    os.execute("/bin/sh " .. CTL .. " restart >/dev/null 2>&1 &")
+                    reopen(15)
+                end),
+            },
+        },
+        {
+            {
+                text = _("Network info"),
+                callback = run(function()
+                    UIManager:broadcastEvent(require("ui/event"):new("ShowNetworkInfo"))
+                end),
+            },
+            {
+                text = _("Check KoboHub"),
+                enabled = wifi_on,
+                callback = run(function()
+                    UIManager:broadcastEvent(require("ui/event"):new("KoboHubCheckNow"))
+                end),
+            },
+        },
+        {
+            {
+                text = _("Refresh"),
+                callback = run(function() reopen(0) end),
+            },
+            {
+                text = _("Close"),
+                callback = run(function() end),
+            },
+        },
+    }
+    if FORK then
+        table.insert(buttons, #buttons, {
+            {
+                text = dev_on and _("Dev mode off") or _("Dev mode on"),
+                callback = run(function()
+                    UIManager:broadcastEvent(require("ui/event"):new("ToggleDevMode"))
+                end),
+            },
+        })
+    end
     dialog = ButtonDialog:new{
         title = table.concat(lines, "\n"),
         title_align = "center",
-        buttons = {
-            {
-                {
-                    text = wifi_on and _("Wi-Fi off") or _("Wi-Fi on"),
-                    callback = run(function()
-                        if wifi_on then
-                            NetworkMgr:disableWifi(nil, false)
-                        else
-                            NetworkMgr:enableWifi(nil, true)
-                        end
-                    end),
-                },
-                {
-                    text = ts_on and _("Tailscale off") or _("Tailscale on"),
-                    enabled = ts_on or wifi_on,
-                    callback = run(function()
-                        if ts_on then
-                            toast(_("Stopping Tailscale…"), 2)
-                            os.execute("/bin/sh " .. CTL .. " stop >/dev/null 2>&1 &")
-                        else
-                            toast(_("Starting Tailscale…"), 2)
-                            os.execute("/bin/sh " .. CTL .. " start >/dev/null 2>&1 &")
-                            reopen(10)
-                        end
-                    end),
-                },
-            },
-            {
-                {
-                    text = _("Choose network"),
-                    callback = run(function()
-                        if NetworkMgr:isWifiOn() then
-                            NetworkMgr.wifi_toggle_long_press = true
-                            NetworkMgr:reconnectOrShowNetworkMenu(nil, true)
-                        else
-                            NetworkMgr:toggleWifiOn(nil, true, true)
-                        end
-                    end),
-                },
-                {
-                    text = _("Restart Tailscale"),
-                    enabled = wifi_on,
-                    callback = run(function()
-                        toast(_("Restarting Tailscale…"), 2)
-                        os.execute("/bin/sh " .. CTL .. " restart >/dev/null 2>&1 &")
-                        reopen(15)
-                    end),
-                },
-            },
-            {
-                {
-                    text = _("Network info"),
-                    callback = run(function()
-                        UIManager:broadcastEvent(require("ui/event"):new("ShowNetworkInfo"))
-                    end),
-                },
-                {
-                    text = _("Check KoboHub"),
-                    enabled = wifi_on,
-                    callback = run(function()
-                        UIManager:broadcastEvent(require("ui/event"):new("KoboHubCheckNow"))
-                    end),
-                },
-            },
-            {
-                {
-                    text = _("Refresh"),
-                    callback = run(function() reopen(0) end),
-                },
-                {
-                    text = _("Close"),
-                    callback = run(function() end),
-                },
-            },
-        },
+        buttons = buttons,
     }
     UIManager:show(dialog)
 end
