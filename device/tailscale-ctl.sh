@@ -169,6 +169,14 @@ hosts_sync() {
 	suffix="$($TS status --json 2>/dev/null |
 		sed -n 's/.*"MagicDNSSuffix": *"\([^"]*\)".*/\1/p' | head -n1)"
 
+	# Right after `up`, the peer list may hold only this device: wait for
+	# the others (up to 20 s), or the block would hold no one to reach.
+	i=0
+	while [ "$i" -lt 20 ] &&
+	      [ "$($TS status 2>/dev/null | awk '$1 ~ /^100\./' | wc -l)" -lt 2 ]; do
+		i=$((i + 1)); sleep 1
+	done
+
 	# `tailscale status` lists one peer per line: <100.x.y.z> <host> <user> ...
 	peers="$($TS status 2>/dev/null | awk -v sfx="$suffix" '
 		$1 ~ /^100\./ && $2 != "" {

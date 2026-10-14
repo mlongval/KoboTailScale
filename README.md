@@ -166,7 +166,11 @@ goes with it and reconnects when the link returns; the daemon survives.
 icon to the top menu bar (reader and file browser), left of the main-menu icon.
 Tap it to turn Wi-Fi + Tailscale on, or Tailscale + Wi-Fi off. The icon shows
 the state when the menu opens: lock = Tailscale up, plain = Wi-Fi only, empty =
-off. `koreader/frontlight.koplugin` puts a sun icon at the left end of the same
+off. **Hold** it for a network panel: the Wi-Fi network and Tailscale status,
+and buttons for Wi-Fi on/off, Tailscale on/off, choosing a network, restarting
+Tailscale and KOReader's network info. With this plugin installed, Wi-Fi
+coming up from anywhere in KOReader (its own menu, waking up, a plugin going
+online) also starts Tailscale. `koreader/frontlight.koplugin` puts a sun icon at the left end of the same
 bar that turns the frontlight on or off (filled = on, hollow = off). Install
 either by copying its folder to `.adds/koreader/plugins/` and restarting
 KOReader.

@@ -8,8 +8,13 @@ browser), next to the main-menu icon.
 
 Tapping it closes the menu and toggles: if Tailscale is running, stop it
 and turn Wi-Fi off; otherwise turn Wi-Fi on and start Tailscale once
-connected. The work is done by tailscale-ctl.sh, the same script the
-NickelMenu entry uses.
+connected. Holding it opens a network panel: status (Wi-Fi network, IP,
+Tailscale) and Wi-Fi / Tailscale / network buttons. The work is done by
+tailscale-ctl.sh, the same script the NickelMenu entry uses.
+
+Wi-Fi on means Tailscale on: whenever Wi-Fi connects (from this button,
+KOReader's own menu, waking up, any plugin asking to go online), Tailscale
+is started if it isn't running.
 
 @module koplugin.tailscale
 --]]--
@@ -100,8 +105,35 @@ function TailscaleButton:init()
             or G_reader_settings:readSetting("filemanagermenu_tab_index")
         if not tabs[i] then i = 1 end
         while tabs[i + 1] and tabs[i].callback and #tabs[i] == 0 do i = i + 1 end
-        return orig(m, i, ...)
+        local ret = orig(m, i, ...)
+        self:addHold(m)
+        return ret
     end
+end
+
+-- TouchMenu has no hold for its bar icons: put one on our icon's button.
+function TailscaleButton:addHold(menu)
+    local touch = menu.menu_container and menu.menu_container[1]
+    local bar = touch and touch.bar
+    if not (bar and bar.icon_widgets) then return end
+    for i, tab in ipairs(menu.tab_item_table or {}) do
+        if tab == self.tab and bar.icon_widgets[i] then
+            bar.icon_widgets[i].hold_callback = function()
+                self:closeMenu()
+                self:showPanel()
+            end
+        end
+    end
+end
+
+-- Wi-Fi coming up from anywhere starts Tailscale.
+function TailscaleButton:onNetworkConnected()
+    if tailscaleRunning() then return end
+    local now = os.time()
+    if TailscaleButton.starting_at and now - TailscaleButton.starting_at < 60 then return end
+    TailscaleButton.starting_at = now
+    logger.info("tailscale button: Wi-Fi connected, starting Tailscale")
+    os.execute("/bin/sh " .. CTL .. " start >/dev/null 2>&1 &")
 end
 
 function TailscaleButton:addToMainMenu(menu_items)
@@ -148,6 +180,116 @@ function TailscaleButton:toggle()
     else
         NetworkMgr:enableWifi(start, true)
     end
+end
+
+-- The network panel (hold the icon).
+function TailscaleButton:showPanel()
+    local ButtonDialog = require("ui/widget/buttondialog")
+    NetworkMgr:queryNetworkState()
+    local wifi_on = NetworkMgr:isWifiOn()
+    local lines = {}
+    if wifi_on and NetworkMgr:isConnected() then
+        local ok, net = pcall(NetworkMgr.getCurrentNetwork, NetworkMgr)
+        local ssid = ok and type(net) == "table" and net.ssid
+        table.insert(lines, ssid and ("Wi-Fi: " .. ssid) or _("Wi-Fi: connected"))
+    elseif wifi_on then
+        table.insert(lines, _("Wi-Fi: on, not connected"))
+    else
+        table.insert(lines, _("Wi-Fi: off"))
+    end
+    local ts_on = tailscaleRunning()
+    table.insert(lines, ts_on and ctlStatus() or _("Tailscale: stopped"))
+
+    local dialog
+    local function run(fn)
+        return function()
+            UIManager:close(dialog)
+            fn()
+        end
+    end
+    local function reopen(delay)
+        UIManager:scheduleIn(delay, function() self:showPanel() end)
+    end
+    dialog = ButtonDialog:new{
+        title = table.concat(lines, "\n"),
+        title_align = "center",
+        buttons = {
+            {
+                {
+                    text = wifi_on and _("Wi-Fi off") or _("Wi-Fi on"),
+                    callback = run(function()
+                        if wifi_on then
+                            NetworkMgr:disableWifi(nil, false)
+                        else
+                            NetworkMgr:enableWifi(nil, true)
+                        end
+                    end),
+                },
+                {
+                    text = ts_on and _("Tailscale off") or _("Tailscale on"),
+                    enabled = ts_on or wifi_on,
+                    callback = run(function()
+                        if ts_on then
+                            toast(_("Stopping Tailscale…"), 2)
+                            os.execute("/bin/sh " .. CTL .. " stop >/dev/null 2>&1 &")
+                        else
+                            toast(_("Starting Tailscale…"), 2)
+                            os.execute("/bin/sh " .. CTL .. " start >/dev/null 2>&1 &")
+                            reopen(10)
+                        end
+                    end),
+                },
+            },
+            {
+                {
+                    text = _("Choose network"),
+                    callback = run(function()
+                        if NetworkMgr:isWifiOn() then
+                            NetworkMgr.wifi_toggle_long_press = true
+                            NetworkMgr:reconnectOrShowNetworkMenu(nil, true)
+                        else
+                            NetworkMgr:toggleWifiOn(nil, true, true)
+                        end
+                    end),
+                },
+                {
+                    text = _("Restart Tailscale"),
+                    enabled = wifi_on,
+                    callback = run(function()
+                        toast(_("Restarting Tailscale…"), 2)
+                        os.execute("/bin/sh " .. CTL .. " restart >/dev/null 2>&1 &")
+                        reopen(15)
+                    end),
+                },
+            },
+            {
+                {
+                    text = _("Network info"),
+                    callback = run(function()
+                        UIManager:broadcastEvent(require("ui/event"):new("ShowNetworkInfo"))
+                    end),
+                },
+                {
+                    text = _("Check KoboHub"),
+                    enabled = wifi_on,
+                    callback = run(function()
+                        UIManager:broadcastEvent(require("ui/event"):new("KoboHubCheckNow"))
+                    end),
+                },
+            },
+            {
+                {
+                    text = _("Refresh"),
+                    callback = run(function() reopen(0) end),
+                },
+                {
+                    text = _("Close"),
+                    callback = run(function() end),
+                },
+            },
+        },
+    }
+    UIManager:show(dialog)
 end
 
 return TailscaleButton
