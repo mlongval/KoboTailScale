@@ -162,6 +162,15 @@ The short name is fine for plain-HTTP ports and for `ssh`.
 Note that KOReader manages WiFi itself. If KOReader drops the WiFi, Tailscale
 goes with it and reconnects when the link returns; the daemon survives.
 
+**Toggle from KOReader's menu bar.** `koreader/tailscale.koplugin` adds a Wi-Fi
+icon to the top menu bar (reader and file browser), left of the main-menu icon.
+Tap it to turn Wi-Fi + Tailscale on, or Tailscale + Wi-Fi off. The icon shows
+the state when the menu opens: lock = Tailscale up, plain = Wi-Fi only, empty =
+off. `koreader/frontlight.koplugin` puts a sun icon at the left end of the same
+bar that turns the frontlight on or off (filled = on, hollow = off). Install
+either by copying its folder to `.adds/koreader/plugins/` and restarting
+KOReader.
+
 ## How it works
 
 ```
