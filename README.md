@@ -1,5 +1,14 @@
 # Kobo TailScale
 
+> **Part of [KoboKit](https://github.com/mlongval/KoboKit)**, a small app system for Kobo e-readers built
+> on KOReader. **Start there** for simple installation instructions.
+>
+> ⚠️ **Written by an AI, no warranty.** This code was written almost
+> entirely by Claude (Anthropic's AI). It comes with no guarantee of any
+> kind, including fitness for any purpose. It may crash, lose your data,
+> brick your Kobo or make it explode. That would not be my fault. Read the
+> [disclaimer](https://github.com/mlongval/KoboKit/blob/main/DISCLAIMER.md) and back up your Kobo first.
+
 ![platform](https://img.shields.io/badge/platform-Kobo%20eReader-2f3437?style=flat-square)
 ![device](https://img.shields.io/badge/tested%20on-Elipsa%20v1-6b4fbb?style=flat-square)
 ![NickelMenu](https://img.shields.io/badge/NickelMenu-toggle-3b7dd8?style=flat-square)
@@ -137,7 +146,7 @@ on. If you'd rather it never touched the radio, drop the `nickel_wifi` line from
 
 Over SSH, `tailscale-ctl.sh` takes `start`, `stop`, `restart`, `toggle`,
 `status`, `login`, `logs`, `hosts sync|clear`, and `ts <args>` for the raw
-Tailscale CLI (`tailscale-ctl.sh ts ping ubuntu-s1`).
+Tailscale CLI (`tailscale-ctl.sh ts ping myserver`).
 
 ### In KOReader
 
@@ -267,3 +276,12 @@ Prior art that saved a lot of guessing:
 [Dylan Staley's Kobo Sage write-up](https://dstaley.com/posts/tailscale-on-kobo-sage/),
 and NiLuJe's kernel-config answer on
 [MobileRead](https://www.mobileread.com/forums/showthread.php?t=342174).
+
+## Issues
+
+Please open issues on [KoboKit](https://github.com/mlongval/KoboKit/issues) using its forms, and read
+[how issues work](https://github.com/mlongval/KoboKit/blob/main/CONTRIBUTING.md) first. Fixes are made by
+Claude Code, so only clearly described, reproducible problems and concrete
+change requests are accepted.
+
+This repository also works on its own, without the rest of KoboKit.
